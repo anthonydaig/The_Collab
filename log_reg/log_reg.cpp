@@ -21,6 +21,7 @@ public:
 	MatrixXd known_y;
 	int classify = 0;
 	bool theta_set = 0;
+	bool bias = 1;
 	bool y_set = 0;
 	double eta = .1;
 	double lambda = 1;
@@ -33,7 +34,7 @@ public:
 	void set_learning_param(double learn);
 	void set_regularizer(double regular);
 	void set_iterations(int num);
-	void learn(MatrixXd, MatrixXd, bool normalize_flag = 1, bool bias = 1);
+	void learn(MatrixXd, MatrixXd, bool normalize_flag = 1, bool bias2 = 1);
 	double sigmoid(MatrixXd x, MatrixXd THETA_col);
 	void predict(MatrixXd);
 	void vectorize_classification(MatrixXd y);
@@ -163,7 +164,7 @@ void log_reg::update(MatrixXd *THETA, MatrixXd x, MatrixXd y, double eta, int it
 
 
 //input for user
-void log_reg::learn(MatrixXd x, MatrixXd y, bool normalize_flag, bool bias)
+void log_reg::learn(MatrixXd x, MatrixXd y, bool normalize_flag, bool bias2)
 {
 	if (normalize_flag)
 	{
@@ -171,6 +172,7 @@ void log_reg::learn(MatrixXd x, MatrixXd y, bool normalize_flag, bool bias)
 	}
 
 	MatrixXd x_norm = x;
+	bias = bias2;
 
 	if (bias)
 	{
