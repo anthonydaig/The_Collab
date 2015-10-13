@@ -203,7 +203,7 @@ void log_reg::predict(MatrixXd x)
 	y_pred.resize(x.rows(),1);
 	double temp;
 	MatrixXd x_norm = x;
-	x_norm.conservativeResize(x_norm.rows(), x_norm.cols()+1);
+	if(bias){x_norm.conservativeResize(x_norm.rows(), x_norm.cols()+1);}
 	x_norm.col(x_norm.cols()-1).setOnes();
 
 	int classi;
