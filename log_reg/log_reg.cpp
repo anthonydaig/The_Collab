@@ -236,7 +236,7 @@ void log_reg::predict(MatrixXd x)
 //test
 int main()
 {
-	MatrixXd x(150,4);
+	MatrixXd x(149,4);
 	x << 	
 		5.1, 3.5, 1.4, 0.2, 
 		4.9, 3.0, 1.4, 0.2, 
@@ -386,9 +386,8 @@ int main()
 		6.7, 3.0, 5.2, 2.3, 
 		6.3, 2.5, 5.0, 1.9, 
 		6.5, 3.0, 5.2, 2.0, 
-		6.2, 3.4, 5.4, 2.3, 
 		5.9, 3.0, 5.1, 1.8; 
-	MatrixXd y(150, 3);
+	MatrixXd y(149, 3);
 	y << 
 		gucci, MAXX, MAXX,
 		gucci, MAXX, MAXX,
@@ -490,7 +489,6 @@ int main()
 		MAXX, gucci, MAXX,
 		MAXX, gucci, MAXX,
 		MAXX, gucci, MAXX,
-		MAXX, MAXX, gucci,
 		MAXX, MAXX, gucci,
 		MAXX, MAXX, gucci,
 		MAXX, MAXX, gucci,
