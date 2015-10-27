@@ -1,19 +1,19 @@
 //http://www.codeproject.com/Tips/816934/Min-Binary-Heap-Implementation-in-Cplusplus
 
-#include "stdafx.h"
+// #include "stdafx.h"
 #include "MinHeap.h"
 
-MinHeap::MinHeap(int* array, int length) : _vector(length)
+MinHeap::MinHeap(Eigen::MatrixXd array, int length) : _vector(length)
 {
     for(int i = 0; i < length; ++i)
     {
-        _vector[i] = array[i];
+        _vector[i] = array(0,i);
     }
 
     Heapify();
 }
 
-MinHeap::MinHeap(const vector<int>& vector) : _vector(vector)
+MinHeap::MinHeap(const vector<double>& vector) : _vector(vector)
 {
     Heapify();
 }
@@ -55,7 +55,7 @@ void MinHeap::BubbleDown(int index)
     if(minIndex != index)
     {
         //need to swap
-        int temp = _vector[index];
+        double temp = _vector[index];
         _vector[index] = _vector[minIndex];
         _vector[minIndex] = temp;
         BubbleDown(minIndex);
@@ -71,14 +71,14 @@ void MinHeap::BubbleUp(int index)
 
     if(_vector[parentIndex] > _vector[index])
     {
-        int temp = _vector[parentIndex];
+        double temp = _vector[parentIndex];
         _vector[parentIndex] = _vector[index];
         _vector[index] = temp;
         BubbleUp(parentIndex);
     }
 }
 
-void MinHeap::Insert(int newValue)
+void MinHeap::Insert(double newValue)
 {
     int length = _vector.size();
     _vector[length] = newValue;
@@ -86,7 +86,7 @@ void MinHeap::Insert(int newValue)
     BubbleUp(length);
 }
 
-int MinHeap::GetMin()
+double MinHeap::GetMin()
 {
     return _vector[0];
 }

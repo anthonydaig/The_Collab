@@ -3,6 +3,7 @@
 #include <iostream>
 #include <math.h>
 #include "Eigen/Dense"
+#include "minheap.h"
 
 #define gucci (1)
 #define MAXX (0)
@@ -15,6 +16,7 @@ class knn {
 
 private:
 	double dist(int, MatrixXd, MatrixXd);
+	void vectorize_classification(MatrixXd y);
 	
 
 public:
@@ -25,7 +27,7 @@ public:
 	//lets add an option that lets us ADD data points without running through everything again
 	// i.e. heapsort the shit out of this baby
 
-	
+	//also add option for format of y
 };
 
 
@@ -50,7 +52,12 @@ void knn::learn(MatrixXd X, MatrixXd Y, MatrixXd test, int k/* also add option t
 		k = Y.cols();
 	}
 
+
+	
+
 	Neighbors.resize(test.rows(), X.rows());
+
+	Classifications.resize(test.rows(), k);
 
 	for (int i = 0; i < test.rows(); ++i)
 	{
@@ -59,16 +66,31 @@ void knn::learn(MatrixXd X, MatrixXd Y, MatrixXd test, int k/* also add option t
 			Neighbors(i,j) = dist(test.cols(), test.row(i), X.row(j));
 		}
 
-		
+		MinHeap test_point(Neighbors.row(i), X.rows());
+
+		for (int j = 0; j < X.rows(); ++j)
+		{
+			Neighbors(i,j) = test_point._vector[j];
+		}
+
+		for (int j = 0; j < k; ++j)
+		{
+			Classifications(i,j) = test_point.GetMin();
+			test_point.DeleteMin();
+		}
+
 
 	}
 
 
-	std::cout << Neighbors << std::endl;
+	std::cout << Neighbors<< "\n\n" << std::endl;
+
+	std::cout << "classifications?\n" << Classifications << std::endl;
+
+
 
 
 }
-
 
 
 
