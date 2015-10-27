@@ -22,6 +22,8 @@ public:
 	MatrixXd Classifications;
 
 	void learn(MatrixXd X, MatrixXd Y, MatrixXd test, int k = -1);
+	//lets add an option that lets us ADD data points without running through everything again
+	// i.e. heapsort the shit out of this baby
 
 	
 };
@@ -30,14 +32,14 @@ public:
 
 double knn::dist(int m, MatrixXd pointa, MatrixXd pointb) {
 
-	double distance = 0.0;
 
 	double distance_sq = 0.0;
 	int i = 0;
 	for (; i < m; i++) {
 		distance_sq = distance_sq + (pointa(0,i)-pointb(0,i))*(pointa(0,i)-pointb(0,i));
 	}
-	return distance;
+
+	return distance_sq;
 }
 
 
@@ -56,6 +58,9 @@ void knn::learn(MatrixXd X, MatrixXd Y, MatrixXd test, int k/* also add option t
 		{
 			Neighbors(i,j) = dist(test.cols(), test.row(i), X.row(j));
 		}
+
+		
+
 	}
 
 
@@ -372,7 +377,20 @@ int main()
 		MAXX, MAXX, gucci,
 		MAXX, MAXX, gucci;
 
+
+
+	MatrixXd test(5, 4);
+	test << 
+	.1, .2, .3, .4, 
+	.4, .3, .2, .1, 
+	.1, .1, .1, .1,
+	.2, .2, .2, .2, 
+	.4, .5, .6, .7;
 	// log_reg logg; 
+
+	knn knnn;
+
+	knnn.learn(x, y, test, 7);
 
 
 	return 1;
