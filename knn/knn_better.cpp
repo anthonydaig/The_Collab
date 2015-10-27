@@ -1,7 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <iostream>
 #include <math.h>
 #include "Eigen/Dense"
+
+#define gucci (1)
+#define MAXX (0)
+
 
 using namespace Eigen;
 
@@ -9,10 +14,14 @@ using namespace Eigen;
 class knn {
 
 private:
-	double dist(int, MatrixXd, MatriXd);
+	double dist(int, MatrixXd, MatrixXd);
 	
 
 public:
+	MatrixXd Neighbors;
+	MatrixXd Classifications;
+
+	void learn(MatrixXd X, MatrixXd Y, MatrixXd test, int k = -1);
 
 	
 };
@@ -32,6 +41,28 @@ double knn::dist(int m, MatrixXd pointa, MatrixXd pointb) {
 }
 
 
+void knn::learn(MatrixXd X, MatrixXd Y, MatrixXd test, int k/* also add option to define distance*/)
+{
+	if (k == -1)
+	{
+		k = Y.cols();
+	}
+
+	Neighbors.resize(test.rows(), X.rows());
+
+	for (int i = 0; i < test.rows(); ++i)
+	{
+		for (int j = 0; j < X.rows(); ++j)
+		{
+			Neighbors(i,j) = dist(test.cols(), test.row(i), X.row(j));
+		}
+	}
+
+
+	std::cout << Neighbors << std::endl;
+
+
+}
 
 
 
@@ -341,8 +372,8 @@ int main()
 		MAXX, MAXX, gucci,
 		MAXX, MAXX, gucci;
 
-	log_reg logg; 
+	// log_reg logg; 
 
 
 	return 1;
-}s
+}
