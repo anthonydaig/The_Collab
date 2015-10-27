@@ -3,7 +3,7 @@
 // #include "stdafx.h"
 #include "MinHeap.h"
 
-MinHeap::MinHeap(Eigen::MatrixXd array, int length) : _vector(length)
+MinHeap::MinHeap(Eigen::MatrixXd array, Eigen::MatrixXd y, int length) : _vector(length)
 {
     for(int i = 0; i < length; ++i)
     {

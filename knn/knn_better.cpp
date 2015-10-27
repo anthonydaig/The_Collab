@@ -28,6 +28,8 @@ public:
 	// i.e. heapsort the shit out of this baby
 
 	//also add option for format of y
+
+	//next add functions that provide methods of analyzing the k-nearest neighbors
 };
 
 
@@ -52,8 +54,7 @@ void knn::learn(MatrixXd X, MatrixXd Y, MatrixXd test, int k/* also add option t
 		k = Y.cols();
 	}
 
-
-	
+	MinHeap *all_da_heaps = new MinHeap[test.rows()];
 
 	Neighbors.resize(test.rows(), X.rows());
 
@@ -79,6 +80,11 @@ void knn::learn(MatrixXd X, MatrixXd Y, MatrixXd test, int k/* also add option t
 			test_point.DeleteMin();
 		}
 
+		//we hvae to make sure this shit is actually working lol
+
+		all_da_heaps[i] = test_point;
+		//
+
 
 	}
 
@@ -91,8 +97,6 @@ void knn::learn(MatrixXd X, MatrixXd Y, MatrixXd test, int k/* also add option t
 
 
 }
-
-
 
 int main()
 {
