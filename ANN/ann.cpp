@@ -5,33 +5,66 @@
 #include <iostream>
 #include <stdlib.h>
 
-#define gucci (1)
-#define MAXX (0)
 
 using namespace Eigen;
 
 class ann {
 
 private:
-	MatrixXd train(MatrixXd, MatrixXd, bool, int*, MatrixXd*);
+	
+	
+	void sigmoid(MatrixXd, MatrixXd*);
+	void sigmoidDeriv(MatrixXd*,int);
+	void initializeTheta(int, int, MatrixXd*);
+	void add_bias(MatrixXd*);
+	void set_ones_sigd(int nodes, int *num_nodes, int x_col, int y_col);
+	void multiply_two(MatrixXd x1, MatrixXd *x2, int);
+	MatrixXd *z_s;
+	MatrixXd *a_s;
+	MatrixXd *ones;
+	MatrixXd *assoc_err;
+	MatrixXd *gradients;
+	MatrixXd *momenta;
+	MatrixXd *temp_mom;
+	int layers;
+	void find_grad(MatrixXd X, MatrixXd Y, int m, int nodes, double *cost);
 
 public:
-	const double eta = 0.1;
-	const int iter = 1000;
+	double eta = 0.1;
+	double lambda = .015;
+	double momentum = .5;
+	int iter = 1000;
+	MatrixXd *hidden_layers;
 
 	ann() { }
 	MatrixXd normalize(MatrixXd);
-	MatrixXd sigmoid(MatrixXd);
-	MatrixXd sigmoidDeriv(MatrixXd);
-	MatrixXd initializeTheta(int, int);
-	MatrixXd* gradientStep(MatrixXd, MatrixXd, int, bool, std::vector<int>);
-	MatrixXd* nncost(MatrixXd, MatrixXd, int, MatrixXd*, int, double*, bool, int);
+	void set_learning_param(double eta1){eta = eta1;}
+	void set_regularizer(double regular){lambda = regular;}
+	void set_iterations(int num){iter = num;}
+	void set_iterations(double momentum1){momentum = momentum1;}
+	void clean();
+	// MatrixXd* gradientStep(MatrixXd, MatrixXd, int, std::vector<int>, bool);
+	void learn(MatrixXd, MatrixXd, int, int*, bool prelearn =1/*whether or not we want stacked autoencoders (default 1)*/);
+
+	MatrixXd predict(MatrixXd);
+
 };
+
+void ann::clean()
+{
+	delete[] z_s;
+	delete[] a_s; 
+	delete[] ones;
+	delete[] assoc_err;
+	delete[] gradients;
+	delete[] momenta;
+	delete[] temp_mom;
+}
 
 MatrixXd ann::normalize(MatrixXd x)
 {
 	double mean, sd;
-	for(int i = 0; i < x.cols() - 1; ++i)
+	for(int i = 0; i < x.cols(); ++i)
 	{
 		mean = x.col(i).mean();
 		
@@ -43,247 +76,229 @@ MatrixXd ann::normalize(MatrixXd x)
 	return x;
 }
 
-MatrixXd ann::sigmoid(MatrixXd x)
+void ann::sigmoid(MatrixXd x, MatrixXd *x1)
 {
-	return (1./(1. + exp(-1.*x.array()))).matrix();	
-
+	*x1 = (1./(1. + exp(-1.*x.array()))).matrix();	
 }
 
-MatrixXd ann::sigmoidDeriv(MatrixXd x)
+void ann::sigmoidDeriv(MatrixXd *x1, int m)
 {
-	return (sigmoid(x).array()*(1-sigmoid(x).array())).matrix();
+	double temp;
+	for (int i = 0; i < m; ++i)
+	{
+		temp = (1./(1. + exp(-1. * ((*x1)(0,i)))));
+		(*x1)(0,i) = (1 - temp)*temp;
+	}
 }
 
-MatrixXd ann::initializeTheta(int inp, int out)
+void ann::multiply_two(MatrixXd x1, MatrixXd *x2, int m)
+{
+	for (int i = 0; i < m; ++i)
+	{
+		(*x2)(0,i) = (*x2)(0,i)*x1(0,i);
+	}
+}
+
+void ann::add_bias(MatrixXd *x)
+{
+	x->conservativeResize(x->rows(), x->cols()+1);
+    x->col(x->cols()-1).setOnes();
+}
+
+void ann::initializeTheta(int inp, int out, MatrixXd *theta)
 {
 	double eps = sqrt(6)/sqrt((double)inp + (double)out);
 	std::default_random_engine generator;
 	std::uniform_real_distribution<double> distribution(-eps,eps);
-	MatrixXd theta(inp, out);
+	(*theta).conservativeResize(inp, out);
 	for(int i = 0; i < inp; ++i)
 	{
 		for(int j = 0; j < out; ++j)
 		{
-			theta(i,j) = distribution(generator);
-			distribution.reset();
+			(*theta)(i,j) = distribution(generator);
 		}
 	}
-	return theta;
 }
 
-// MatrixXd ann::train(MatrixXd x, MatrixXd y, bool normalize_flag, int* cost_point, MatrixXd* thetas)
-// {
-// 	double lambda = 5;
-
-
-// 	if(normalize_flag)
-// 	{
-// 		x = normalize(x);
-// 	}
-
-// 	double cost = 0;
-	
-
-// 	MatrixXd a_i(x.cols(), 1);
-
-// 	for(int i = 0; i < x.rows(); ++i)
-// 	{
-// 		a_i = x.row(i);
-// 	}
-
-// 	*cost_point = cost;
-// 	return *thetas;
-
-
-MatrixXd* ann::gradientStep(MatrixXd x, MatrixXd y, int iter, bool bias, std::vector<int> nodes)
+void ann::set_ones_sigd(int nodes, int *num_nodes, int x_col, int y_col)
 {
-	// nodes is a list of the number of nodes we want in a hidden layer
-
-	double lambda = 5;
-	double eta = .1;
-	double cost_point[iter];
-
-
-	// Add a bias column to the data if not added
-	if(!bias)
+	ones[0] = MatrixXd::Ones(num_nodes[0], x_col+1);
+	for (int i = 1; i < nodes; ++i)
 	{
-		x.conservativeResize(x.rows(), x.cols()+1);
-		x.col(x.cols()-1).setOnes();
+		ones[i] = MatrixXd::Ones(num_nodes[i], num_nodes[i-1]+1);
+	}
+	ones[nodes] = MatrixXd::Ones(y_col, num_nodes[nodes-1]);
+}
+
+void ann::learn(MatrixXd X, MatrixXd Y, int nodes, int *num_nodes, bool prelearn)
+{
+	layers = nodes;
+    hidden_layers = new MatrixXd[nodes+1];
+	if (nodes <1)
+	{
+		fprintf(stderr, "Number of nodes must be greater than 0\n");
 	}
 
-
-
-	int inps = x.cols(); // Number of input nodes
-	int outp = y.cols(); // Number of final output nodes
-
-	int hidden = nodes.size(); // Number of hidden layers
-
-	MatrixXd* thetas = new MatrixXd[hidden+1]; // hidden + 2 layers, hidden + 1 connections
-	MatrixXd* deltas = new MatrixXd[hidden+1];
-
-	thetas[0] = initializeTheta(nodes.at(0), inps);
-
-	std::cout << hidden << std::endl;
-
-	for(int i = 0; i < hidden - 1; ++i)
+	if (!prelearn) //randomly initialize weights
 	{
-		thetas[i+1] = initializeTheta(nodes.at(i+1), nodes.at(i) + 1);
+		initializeTheta(num_nodes[0],X.cols()+1, &(hidden_layers[0]));
+
+		for (int i = 1; i < nodes; ++i)
+		{
+			initializeTheta(num_nodes[i], num_nodes[i-1] + 1, &(hidden_layers[i]));
+		}
+
+		initializeTheta(Y.cols(), num_nodes[nodes-1] + 1, &(hidden_layers[nodes]));
+
 	}
 
-	thetas[hidden] = initializeTheta(outp, nodes.at(hidden-1) + 1);
-
-
-	for(int i = 0; i < hidden+1; ++i)
-	{
-		std::cout << thetas[i] << std::endl;
-		std::cout << std::endl;
-	}
+	else{/* stacked autoencoder plz */}
 
 	int i = 0;
+	MatrixXd x = normalize(X);
+	add_bias(&x);
+	int m = x.rows();
+
+	z_s = new MatrixXd[nodes+1];
+	a_s = new MatrixXd[nodes+2];
+	ones = new MatrixXd[nodes+1];
+	assoc_err = new MatrixXd[nodes+1];
+	gradients = new MatrixXd[nodes+1];
+	momenta = new MatrixXd[nodes+1];
+	temp_mom = new MatrixXd[nodes+1];
+
+	set_iterations(1000);
+
+	set_ones_sigd(nodes, num_nodes, X.cols(), Y.cols());
+
+	double cost = 0;
+
+
 	while(i < iter)
 	{
-		deltas = nncost(x, y, ++i, thetas, iter, cost_point, 1, hidden+1);
-		for(int j = 0; j < hidden + 2; ++j){
-			thetas[j] = thetas[j] - eta*deltas[j];
-		}
+		find_grad(x, Y, m, nodes, &cost);
 
-		// Length of del's is going to be length of thetas
-		// for(int j = 0; j < )
-	}
-
-	return thetas;
-}
-
-MatrixXd* ann::nncost(MatrixXd x, MatrixXd y, int count, MatrixXd* thetas, int iter, double* cost, bool normalize_flag, int theta_len)
-{
-	double lambda = 5;
-
-	std::cout << theta_len << std::endl;
-
-	if(normalize_flag)
-	{
-		x = normalize(x); // this normalize function assumes the last column is a bias column and thus does not normalize that column
-	}
-
-	// Bias term handled in ann::gradientStep
-
-	double this_cost = 0;
-
-	MatrixXd a_i(x.cols(), 1);
-	MatrixXd* a_s = new MatrixXd[theta_len+1]; // keep tabs on this initial size
-	MatrixXd* z_s = new MatrixXd[theta_len];
-	MatrixXd* dels = new MatrixXd[theta_len];
-	MatrixXd* deltas = new MatrixXd[theta_len];
-	MatrixXd* final_delta = new MatrixXd[theta_len];
-	MatrixXd z2, a2, h_theta, y_temp, z_i, del_prev, del_i;
-	
-	int h_theta_len;
-
-	double log_1, log_2, term_1, term_2;
-
-	for(int i = 0; i < x.rows(); ++i)
-	{
-		a_s[0] = x.row(i);
-
-		std::cout << a_s[0].cols() << std::endl << thetas[0].transpose().rows() << std::endl;
-
-		for(int j = 0; j < theta_len; ++j)
+		for (int j = 0; j < nodes+1; ++j)
 		{
-
-			std::cout << a_s[j]*thetas[j].transpose() << std::endl;
-
-			z_s[j] = a_s[j]*thetas[j].transpose();
-
-			std::cout << sigmoid(z_s[j]) << std::endl;
-
-			a_s[j+1] = sigmoid(z_s[j]);
-
-			if(j != theta_len - 1)
-			{	
-				a_s[j+1].conservativeResize(a_s[j+1].rows(), a_s[j+1].cols()+1);
-				a_s[j+1](a_s[j+1].cols()-1) = 1;
-			}
-
-
-			// z_s[j] = z2;
-			// a2 = sigmoid(z2);
-			// a_s[j+1] << 1, a2;
-
-		}
-
-		std::cout << "here me" << std::endl;
-
-		h_theta = a_s[theta_len];
-
-		std::cout << h_theta << std::endl;
-
-
-		h_theta_len = thetas[theta_len - 1].rows();
-
-		std::cout << h_theta_len << std::endl;
-		
-		y_temp = y.row(i);
-
-		std::cout << y_temp << std::endl;
-
-		if(count == iter - 1)
-		{
-			std::cout << h_theta << std::endl;
-			std::cout << y_temp << std::endl;
-		}
-
-		for(int j = 0; j < h_theta_len; ++j)
-		{
-			log_1 = log(h_theta(j));
-			log_2 = log(1-h_theta(j));
-			term_1 = -log_1*y_temp(j);
-			term_2 = log_2*(1-y_temp(j));
-			this_cost += term_1 + term_2;
-
-			std::cout << this_cost << std::endl;
-		}
-
-		// the dels[theta_len - 1] entry
-		dels[theta_len - 1] = a_s[theta_len] - y.row(i);
-
-		std::cout << "dels[theta_len-1]:\n" << dels[theta_len - 1] << std::endl;
-
-		for(int j = theta_len - 1; j > 0; --j)
-		{
-			// .row(0) may not be general
-
-
-			std::cout << "thetas[j]:\n" << thetas[j] << std::endl;
-			std::cout << "dels[j]:\n" << dels[j] << std::endl;
-			std::cout << "mult:\n" << dels[j]*thetas[j] << std::endl;
-			std::cout << "sigmoidDeriv:\n" << sigmoidDeriv(z_s[j-1]) << std::endl;
-
-			
-			dels[j-1] = (dels[j]*thetas[j])*sigmoidDeriv(z_s[j-1]);
-			std::cout << dels[j-1] << std::endl;
-		}
-
-		for(int j = 0; j < theta_len; ++j)
-		{
-			deltas[j] = dels[j].transpose()*a_s[j]/theta_len;
-		}
-
-		if(i == 0)
-		{
-			final_delta = deltas;
-		} else {
-			for(int k = 0; k < theta_len; ++k)
+			if (i)
 			{
-				final_delta[k] += deltas[k];
+				gradients[j] = (gradients[j] + lambda*hidden_layers[j])/m;
+				temp_mom[j] = -eta*gradients[j] + momentum*momenta[j];
+				hidden_layers[j] = hidden_layers[j] + temp_mom[j];
+				momenta[j] = temp_mom[j];
 			}
+
+			else
+			{
+				gradients[j] = (gradients[j] + lambda*hidden_layers[j])/m;
+				momenta[j] = -eta*gradients[j];
+				hidden_layers[j] = hidden_layers[j] + momenta[j];
+			}
+
+		}
+		
+		cost = 0;
+		i++;
+
+	}
+}
+
+void ann::find_grad(MatrixXd X, MatrixXd Y, int m, int nodes, double *cost)
+{
+	int j;
+
+	for (int i = 0; i < m; ++i)
+	{
+		a_s[0] = X.row(i);
+
+		for (j = 0; j < nodes+1; ++j)
+		{
+		
+			z_s[j] = a_s[j]*(hidden_layers[j].transpose());
+
+			sigmoid(z_s[j], &(a_s[j+1]));
+
+			a_s[j+1].conservativeResize(a_s[j+1].rows(), a_s[j+1].cols()+1);
+
+			a_s[j+1].col(a_s[j+1].cols()-1).setOnes();
+
+		}
+
+		a_s[nodes+1].conservativeResize(a_s[nodes+1].rows(), a_s[nodes+1].cols()-1);
+
+	
+
+		for (j = 0; j < Y.cols(); ++j)
+		{
+			*cost += -1 * Y(i,j)*log(a_s[nodes+1](0,j))  
+			- (1. - Y(i,j))*log(1. - a_s[nodes+1](0,j));
+
+		}
+
+		assoc_err[nodes] = a_s[nodes+1] - Y.row(i);
+
+		for (j = nodes; j > 0; --j)
+		{
+			assoc_err[j-1] = assoc_err[j]*(hidden_layers[j]);
+			assoc_err[j-1].conservativeResize(1, assoc_err[j-1].cols()-1);
+			sigmoidDeriv(&(z_s[j-1]), z_s[j-1].cols());
+			multiply_two(z_s[j-1], &(assoc_err[j-1]), assoc_err[j-1].cols());
+		}
+
+		for (int j = 0; j < nodes+1; ++j)
+		{			
+			if (i)
+			{
+				gradients[j] = gradients[j] + (assoc_err[j].transpose() * a_s[j]);
+			}
+			else
+			{
+				gradients[j] = (assoc_err[j].transpose() * a_s[j]);
+			}	
+		}
+	}
+
+	*cost = *cost / m;
+
+}
+
+
+MatrixXd ann::predict(MatrixXd unkn)
+{
+	MatrixXd inp = normalize(unkn);
+	add_bias(&inp);
+	MatrixXd predictions(unkn.rows(), hidden_layers[layers].rows());
+
+
+	for (int i = 0; i < unkn.rows(); ++i)
+	{
+	
+
+		a_s[0] = inp.row(i);
+
+		for (int j = 0; j < layers+1; ++j)
+		{
+
+			z_s[j] = a_s[j]*(hidden_layers[j].transpose());
+
+			sigmoid(z_s[j], &(a_s[j+1]));
+			a_s[j+1].conservativeResize(a_s[j+1].rows(), a_s[j+1].cols()+1);
+			a_s[j+1].col(a_s[j+1].cols()-1).setOnes();
+
+		}
+
+		for (int j = 0; j < hidden_layers[layers].rows(); ++j)
+		{
+			predictions(i,j) = a_s[layers+1](0,j);
+
 		}
 
 	}
 
-	cost[count - 1] = this_cost;
+	return predictions;
 
-	return final_delta;
 }
+
 
 
 int main(int argv, char** argc){
@@ -298,14 +313,19 @@ int main(int argv, char** argc){
 			0, 1,
 			1, 0,
 			1, 0;
-	std::cout << x << std::endl;
-	std::cout << y << std::endl;
 
-	std::vector<int> nodes;
-	nodes.push_back(3);
-	nodes.push_back(2);
-	
-	net.gradientStep(x, y, 100, 0, nodes);
+	int nodes[3];
+	nodes[0] = 5;
+	nodes[1] = 6;
+	nodes[2] = 9;
+
+	// net.enc_dec(x, 2);
+
+
+	// net.learn(x, y, 3, nodes, 0);
+
+	// std::cout << net.predict(x) << "\nsuppp\n"<< std::endl;
+	// std::cout << x << std::endl;
 
 
 	return 0;
